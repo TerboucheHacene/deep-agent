@@ -1,5 +1,20 @@
 from pathlib import Path
 
+__all__ = [
+    "load_prompt",
+    "list_available_prompts",
+    "WRITE_TODOS_DESCRIPTION",
+    "TODO_USAGE_INSTRUCTIONS",
+    "LS_DESCRIPTION",
+    "READ_FILE_DESCRIPTION",
+    "WRITE_FILE_DESCRIPTION",
+    "FILE_USAGE_INSTRUCTIONS",
+    "SUMMARIZE_WEB_SEARCH",
+    "RESEARCHER_INSTRUCTIONS",
+    "TASK_DESCRIPTION_PREFIX",
+    "SUBAGENT_USAGE_INSTRUCTIONS",
+]
+
 
 def load_prompt(prompt_name: str, prompts_dir: Path | None = None) -> str:
     """Load a prompt from a markdown file in the prompts directory.
@@ -58,16 +73,16 @@ def list_available_prompts(prompts_dir: Path | None = None) -> list[str]:
 
 
 # Load all prompts as constants
-WRITE_TODOS_DESCRIPTION = load_prompt("write_todos_description")
-TODO_USAGE_INSTRUCTIONS = load_prompt("todo_usage_instructions")
-LS_DESCRIPTION = load_prompt("ls_description")
-READ_FILE_DESCRIPTION = load_prompt("read_file_description")
-WRITE_FILE_DESCRIPTION = load_prompt("write_file_description")
-FILE_USAGE_INSTRUCTIONS = load_prompt("file_usage_instructions")
-SUMMARIZE_WEB_SEARCH = load_prompt("summarize_web_search")
-RESEARCHER_INSTRUCTIONS = load_prompt("researcher_instructions")
-TASK_DESCRIPTION_PREFIX = load_prompt("task_description_prefix")
-SUBAGENT_USAGE_INSTRUCTIONS = load_prompt("subagent_usage_instructions")
+WRITE_TODOS_DESCRIPTION: str = load_prompt("write_todos_description")
+TODO_USAGE_INSTRUCTIONS: str = load_prompt("todo_usage_instructions")
+LS_DESCRIPTION: str = load_prompt("ls_description")
+READ_FILE_DESCRIPTION: str = load_prompt("read_file_description")
+WRITE_FILE_DESCRIPTION: str = load_prompt("write_file_description")
+FILE_USAGE_INSTRUCTIONS: str = load_prompt("file_usage_instructions")
+SUMMARIZE_WEB_SEARCH: str = load_prompt("summarize_web_search")
+RESEARCHER_INSTRUCTIONS: str = load_prompt("researcher_instructions")
+TASK_DESCRIPTION_PREFIX: str = load_prompt("task_description_prefix")
+SUBAGENT_USAGE_INSTRUCTIONS: str = load_prompt("subagent_usage_instructions")
 
 
 # Example usage

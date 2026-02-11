@@ -1,32 +1,26 @@
-import html
 import json
 from collections.abc import AsyncGenerator
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends
-from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langfuse.langchain import CallbackHandler as LangfuseCallbackHandler
 from langgraph.graph.state import CompiledStateGraph
 from sse_starlette.sse import EventSourceResponse
 
 from agent.services.api.dependencies import get_agent, get_langfuse_handler
+from agent.services.api.routes.utils import (
+    convert_messages,
+    emit_agent_end,
+    emit_agent_start,
+    emit_done,
+    emit_status,
+    emit_token,
+    emit_tool_end,
+    emit_tool_start,
+)
 from agent.services.api.schemas import ChatRequest, ChatResponse, Message
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-
-MESSAGE_MAP = {
-    "user": HumanMessage,
-    "assistant": AIMessage,
-    "system": SystemMessage,
-}
-
-
-def convert_messages(messages: list[Message]):
-    return [
-        MESSAGE_MAP[msg.role](content=msg.content)
-        for msg in messages
-        if msg.role in MESSAGE_MAP
-    ]
 
 
 @router.post("", response_model=ChatResponse)
@@ -48,11 +42,8 @@ async def chat(
     )
 
 
-def truncate(text: str, max_len: int = 200) -> str:
-    return text[:max_len] + "..." if len(text) > max_len else text
-
-
 def clean_tool_result(output: str) -> str:
+    """Extract meaningful content from tool output."""
     if not output or not output.strip():
         return "✓ completed"
 
@@ -68,22 +59,18 @@ def clean_tool_result(output: str) -> str:
         try:
             data = json.loads(output)
             if isinstance(data, dict):
-                for key in ("content", "message"):
+                for key in ("content", "message", "result"):
                     if key in data:
-                        return str(data[key])[:200]
-            return "✓ completed"
+                        return str(data[key])
+            return json.dumps(data, indent=2)
         except json.JSONDecodeError:
             pass
 
     return output
 
 
-def format_tool_result(name: str, result: str) -> str:
-    preview = html.escape(truncate(clean_tool_result(result)))
-    return f"**🔧 {name}:** {preview}\n\n"
-
-
-def extract_text_content(content) -> str:
+def extract_text_content(content: Any) -> str:
+    """Extract text from various content formats."""
     if isinstance(content, str):
         return content
     if isinstance(content, list):
@@ -101,15 +88,16 @@ async def generate_stream(
     agent: CompiledStateGraph,
     messages: list[Message],
     langfuse_handler: LangfuseCallbackHandler,
-    show_tool_details: bool = True,
-) -> AsyncGenerator[str, None]:
-    """Stream with real-time tokens. Final AI duplicated outside collapse."""
+) -> AsyncGenerator[dict[str, str], None]:
+    """Stream typed events for Open WebUI Pipe consumption."""
 
-    current_ai_content = ""
     tool_info: dict[str, dict] = {}
-    collapse_open = False
-    streaming_ai = False
-    subagent_stack: list[str] = []
+    subagent_stack: list[str] = []  # Track nested sub-agents
+
+    def get_agent_depth() -> int:
+        return len(subagent_stack)
+
+    yield emit_status("Starting...", get_agent_depth())
 
     async for event in agent.astream_events(
         {"messages": convert_messages(messages)},
@@ -117,94 +105,48 @@ async def generate_stream(
         config={"callbacks": [langfuse_handler]},
     ):
         kind = event["event"]
-        run_id = event.get("run_id")
+        run_id = event.get("run_id", "")
 
         if kind == "on_chat_model_stream":
             content = extract_text_content(event["data"]["chunk"].content)
             if content:
-                current_ai_content += content
-
-                if show_tool_details:
-                    if not collapse_open:
-                        yield json.dumps(
-                            {
-                                "content": "\n<details open>\n<summary>🔍 Execution Steps</summary>\n\n"
-                            }
-                        )
-                        collapse_open = True
-
-                    if not streaming_ai:
-                        prefix = (
-                            "**🔧 Sub-agent:** "
-                            if subagent_stack
-                            else "**🤖 AI:** "
-                        )
-                        yield json.dumps({"content": prefix})
-                        streaming_ai = True
-
-                    yield json.dumps({"content": content})
+                yield emit_token(content, get_agent_depth())
 
         elif kind == "on_tool_start":
             tool_name = event.get("name", "tool")
             tool_info[run_id] = {"name": tool_name}
 
-            if show_tool_details:
-                if streaming_ai:
-                    yield json.dumps({"content": "\n\n"})
-                    streaming_ai = False
-                current_ai_content = ""
-
-                if not collapse_open:
-                    yield json.dumps(
-                        {
-                            "content": "\n<details open>\n<summary>🔍 Execution Steps</summary>\n\n"
-                        }
-                    )
-                    collapse_open = True
-
+            # Track sub-agent (task tool)
             if tool_name == "task":
                 subagent_stack.append(run_id)
+                yield emit_agent_start(run_id, tool_name, get_agent_depth())
+            else:
+                yield emit_tool_start(run_id, tool_name, get_agent_depth())
 
         elif kind == "on_tool_end" and run_id in tool_info:
+            tool_name = tool_info[run_id]["name"]
             tool_output = event["data"].get("output", "")
             output_str = (
                 tool_output
                 if isinstance(tool_output, str)
                 else json.dumps(tool_output, default=str)
             )
-            tool_name = tool_info[run_id]["name"]
 
             if subagent_stack and subagent_stack[-1] == run_id:
+                depth = get_agent_depth()
                 subagent_stack.pop()
-                continue
-
-            if show_tool_details:
-                if streaming_ai:
-                    yield json.dumps({"content": "\n\n"})
-                    streaming_ai = False
-
-                if not collapse_open:
-                    yield json.dumps(
-                        {
-                            "content": "\n<details open>\n<summary>🔍 Execution Steps</summary>\n\n"
-                        }
-                    )
-                    collapse_open = True
-
-                yield json.dumps(
-                    {"content": format_tool_result(tool_name, output_str)}
+                yield emit_agent_end(run_id, depth)
+                cleaned_result = clean_tool_result(output_str)
+                yield emit_tool_end(
+                    run_id, tool_name, cleaned_result, get_agent_depth()
+                )
+            else:
+                cleaned_result = clean_tool_result(output_str)
+                yield emit_tool_end(
+                    run_id, tool_name, cleaned_result, get_agent_depth()
                 )
 
-    if streaming_ai:
-        yield json.dumps({"content": "\n\n"})
-
-    if collapse_open:
-        yield json.dumps({"content": "\n</details>\n\n"})
-
-    if current_ai_content.strip():
-        yield json.dumps({"content": current_ai_content})
-
-    yield json.dumps({"done": True})
+    yield emit_done()
 
 
 @router.post("/stream")
@@ -215,13 +157,8 @@ async def chat_stream(
         LangfuseCallbackHandler, Depends(get_langfuse_handler)
     ],
 ):
-    """Send a message and get a streaming response (SSE)."""
+    """Send a message and get a streaming response (SSE) with typed events."""
     return EventSourceResponse(
-        generate_stream(
-            agent,
-            request.messages,
-            langfuse_handler,
-            show_tool_details=request.show_tool_details,
-        ),
+        generate_stream(agent, request.messages, langfuse_handler),
         media_type="text/event-stream",
     )
