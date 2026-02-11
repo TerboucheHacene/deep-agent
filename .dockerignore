@@ -1,0 +1,38 @@
+# Virtual environments
+.venv/
+venv/
+env/
+__pycache__/
+*.pyc
+*.pyo
+
+# IDE
+.vscode/
+.idea/
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose.yml
+.dockerignore
+
+# Keep these (NOT ignored)
+# !pyproject.toml
+# !uv.lock
+# !src/
+
+# Other
+*.md
+LICENSE
+notebooks/
+agent-chat-app/
+.env
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

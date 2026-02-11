@@ -1,0 +1,7 @@
+{
+  "graphs": {
+    "agent": "./src/agent/ai/assistant.py:build_assistant_agent"
+  },
+  "env": ".env",
+  "dependencies": ["./pyproject.toml"]
+}

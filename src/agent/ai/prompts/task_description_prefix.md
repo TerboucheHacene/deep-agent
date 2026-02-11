@@ -1,0 +1,5 @@
+# Task Description Prefix
+
+Delegate a task to a specialized sub-agent with isolated context. Available agents for delegation are:
+
+{other_agents}
