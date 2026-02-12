@@ -123,6 +123,26 @@ Access Langfuse at `http://localhost:3000` to monitor agent traces.
 
 ![Langfuse Observability Dashboard](assets/langfuse.png)
 
+## Open WebUI Integration
+
+To connect Deep Agent to [Open WebUI](https://github.com/open-webui/open-webui), you need to create a custom Pipe:
+
+1. **Open the Admin Panel** in Open WebUI
+2. Navigate to **Functions** → **Create new function**
+3. Copy the contents of [`openwebui/deep_agent_pipe.py`](openwebui/deep_agent_pipe.py) into the function editor
+4. Save and enable the function
+5. Configure the **Valves** (settings):
+   - `DEEP_AGENT_URL`: URL of your Deep Agent API (default: `http://deep-agent-api:8000`)
+   - `SHOW_TOOL_CITATIONS`: Show tool results as clickable citations
+   - `SHOW_SUBAGENT_STATUS`: Show sub-agent activity in the status bar
+   - `REQUEST_TIMEOUT`: Timeout for long-running tasks (default: 300s)
+
+The pipe routes typed events from the Deep Agent backend to Open WebUI's native UI components:
+- **Status events** → Status bar (thinking indicator)
+- **Tool events** → Citations (clickable tool results)
+- **Token events** → Chat bubble (streamed text)
+- **Agent events** → Sub-agent activity indicators
+
 ## License
 
 This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
