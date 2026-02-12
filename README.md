@@ -2,6 +2,18 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+![LangGraph](https://img.shields.io/badge/Built%20with-LangGraph-blue)
+![FastAPI](https://img.shields.io/badge/API-FastAPI-009688?logo=fastapi&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
+## Table of Contents
+
+- [Overview](#overview)
+- [Features & Architecture](#features--architecture)
+- [Prerequisites & Installation](#prerequisites--installation)
+- [Usage](#usage)
+- [Open WebUI Integration](#open-webui-integration)
+- [License](#license)
+- [References](#references)
 
 ## Overview
 
